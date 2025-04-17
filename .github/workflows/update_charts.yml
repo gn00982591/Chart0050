@@ -1,54 +1,23 @@
-name: Daily update 0050 charts
+- name: Checkout default branch
+  uses: actions/checkout@v4
+  with:
+    persist-credentials: false   # push 時再手動加 PAT
 
-on:
-  schedule:
-    # 18:30 Asia/Taipei = 10:30 UTC
-    - cron: '30 10 * * *'
-  workflow_dispatch:
+# …產生圖表…
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+- name: Commit & push to gh-pages
+  env:
+    GH_TOKEN: ${{ secrets.GH_PAT }}
+  run: |
+    git config user.email "github-actions[bot]@users.noreply.github.com"
+    git config user.name  "github-actions[bot]"
 
-    steps:
-      # 1️⃣ 取 gh-pages 分支，但先關掉預設憑證，稍後改用自己的 PAT
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          persist-credentials: false   # 不用 GITHUB_TOKEN，改用 GH_PAT
+    # 第一次跑時 main 還在；改切孤兒 gh-pages 分支
+    git switch --orphan gh-pages
+    git rm -rf .
+    mv ../0050_*.html .
+    git add 0050_*.html
+    git commit -m "chore: init gh-pages $(date -u +'%Y-%m-%d')"
 
-      # 2️⃣ 安裝 Python
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      # 3️⃣ 套件依賴
-      - name: Install dependencies
-        run: |
-          pip install yfinance pandas plotly
-
-      # 4️⃣ 產生圖表
-      - name: Generate charts
-        run: |
-          python scripts/make_charts.py
-
-      # 5️⃣ Commit & Push 回 gh-pages
-      - name: Commit & push updated charts
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          # 設定 Git 身分
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name  "github-actions[bot]"
-
-          # 加入並提交
-          git add 0050_*.html
-          git commit -m "chore: update charts $(date -u +'%Y-%m-%d')" || echo "No changes"
-
-          # 用 PAT 更新遠端 URL → 有寫入權限
-          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}.git
-
-          # Push 到 gh-pages 分支
-          git push origin gh-pages
+    git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+    git push -u origin gh-pages
