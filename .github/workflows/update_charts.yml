@@ -1,23 +1,40 @@
-- name: Checkout default branch
-  uses: actions/checkout@v4
-  with:
-    persist-credentials: false   # push 時再手動加 PAT
+name: Daily update 0050 charts
 
-# …產生圖表…
+on:
+  schedule:
+    # 18:30 Asia/Taipei = 10:30 UTC
+    - cron: '30 10 * * *'
+  workflow_dispatch:
 
-- name: Commit & push to gh-pages
-  env:
-    GH_TOKEN: ${{ secrets.GH_PAT }}
-  run: |
-    git config user.email "github-actions[bot]@users.noreply.github.com"
-    git config user.name  "github-actions[bot]"
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    # 第一次跑時 main 還在；改切孤兒 gh-pages 分支
-    git switch --orphan gh-pages
-    git rm -rf .
-    mv ../0050_*.html .
-    git add 0050_*.html
-    git commit -m "chore: init gh-pages $(date -u +'%Y-%m-%d')"
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          persist-credentials: false
 
-    git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-    git push -u origin gh-pages
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install yfinance pandas plotly
+
+      - name: Generate charts
+        run: python scripts/make_charts.py
+
+      - name: Commit & push
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name  "github-actions[bot]"
+          git add 0050_*.html
+          git commit -m "chore: update charts $(date -u +'%Y-%m-%d')" || echo "No changes"
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git gh-pages
