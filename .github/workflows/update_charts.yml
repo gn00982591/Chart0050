@@ -6,35 +6,46 @@ on:
     - cron: '30 10 * * *'
   workflow_dispatch:
 
+# 讓內建 GITHUB_TOKEN 具有 push 權限
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ 先抓取 gh‑pages 分支（需保證分支已存在）
       - name: Checkout gh-pages branch
         uses: actions/checkout@v4
         with:
           ref: gh-pages
-          persist-credentials: false
 
+      # 2️⃣ 安裝 Python 3.11
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
+      # 3️⃣ 安裝所需套件
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install yfinance pandas plotly
 
+      # 4️⃣ 產生圖表（scripts/make_charts.py）
       - name: Generate charts
-        run: python scripts/make_charts.py
-
-      - name: Commit & push
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          python scripts/make_charts.py
+
+      # 5️⃣ Commit & push 回 gh‑pages
+      - name: Commit & push charts
+        run: |
           git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add 0050_*.html
           git commit -m "chore: update charts $(date -u +'%Y-%m-%d')" || echo "No changes"
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git gh-pages
+
+          # 直接使用 GITHUB_TOKEN（已具備 contents:write）
+          git push origin gh-pages
