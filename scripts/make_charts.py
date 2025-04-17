@@ -1,128 +1,91 @@
-"""Daily chart generator for Yuanta 0050 ETF
+"""
+make_charts.py – Generate combined interactive HTML chart for Yuanta 0050 ETF
+--------------------------------------------------------------------------
+• Row 1  Candlestick  (上漲＝紅、下跌＝綠)  + 5/14/20 MA + 20‑day Bollinger Bands
+• Row 2  成交量柱狀圖（同色系：漲＝紅、跌＝綠）
+• Row 3  KD(9) 指標線圖
 
-Generates a single HTML file (0050_charts.html) that contains:
-  • Candlestick chart with 5/14/20‑day moving averages & 20‑day Bollinger Bands
-    ‑ Up (Close ≥ Open) candles: **red**
-    ‑ Down (Close < Open) candles: **green**
-  • KD indicator (9‑day stochastic %K & %D) as a subplot under the K‑chart
-
-The script is meant to be executed by GitHub Actions (see update_charts.yml).
-All required packages are installed in the workflow step:
-    pip install yfinance pandas plotly
+產生單一檔案 0050_charts.html，供 GitHub Pages 部署。
 """
 
-from __future__ import annotations
-
 import pandas as pd
+import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import yfinance as yf
 
-TICKER = "0050.TW"
-LOOKBACK_DAYS = "70d"  # enough to compute 20‑day Bollinger
-OUTPUT_FILE = "0050_charts.html"
+# ------------- 下載最近 70 天資料 -------------
+df = yf.Ticker("0050.TW").history(period="70d").reset_index()
 
-# ------------------------------------------------------------------
-# Fetch historical data (adjusted) -------------------------------------------------
-# ------------------------------------------------------------------
-
-data = yf.Ticker(TICKER).history(period=LOOKBACK_DAYS).reset_index()
-if data.empty:
-    raise RuntimeError(f"No data returned for {TICKER}. Check symbol or internet connectivity.")
-
-# ------------------------------------------------------------------
-# Technical indicators ------------------------------------------------------------
-# ------------------------------------------------------------------
-
+# --------- 均線 & 布林計算 ---------
 for n in (5, 14, 20):
-    data[f"MA_{n}"] = data["Close"].rolling(n).mean()
+    df[f"MA_{n}"] = df["Close"].rolling(n).mean()
 
-# 20‑day Bollinger Bands
-mid = data["MA_20"]
-std = data["Close"].rolling(20).std(ddof=0)
-data["BB_Upper"] = mid + 2 * std
-data["BB_Lower"] = mid - 2 * std
-data["BB_Mid"] = mid
+df["BB_Mid"]   = df["MA_20"]
+df["BB_Std"]   = df["Close"].rolling(20).std(ddof=0)
+df["BB_Upper"] = df["BB_Mid"] + 2 * df["BB_Std"]
+df["BB_Lower"] = df["BB_Mid"] - 2 * df["BB_Std"]
 
-# KD (Stochastic 9)
-low_min = data["Low"].rolling(9).min()
-high_max = data["High"].rolling(9).max()
-RSV = (data["Close"] - low_min) / (high_max - low_min) * 100
-K = RSV.ewm(alpha=1/3, adjust=False).mean()
-D = K.ewm(alpha=1/3, adjust=False).mean()
+# --------- KD(9) ---------
+low_min   = df["Low"].rolling(9).min()
+high_max  = df["High"].rolling(9).max()
+df["RSV"] = (df["Close"] - low_min) / (high_max - low_min) * 100
+df["K"]    = df["RSV"].ewm(alpha=1/3, adjust=False).mean()
+df["D"]    = df["K"].ewm(alpha=1/3, adjust=False).mean()
 
-data["K"] = K
-data["D"] = D
+# --------- 顏色設定 ---------
+inc_color = "red"   # 上漲 (Close >= Open)
+dec_color = "green" # 下跌
 
-# ------------------------------------------------------------------
-# Plotting ------------------------------------------------------------------------
-# ------------------------------------------------------------------
+# --------- 建立子圖: 3 行 1 列 ---------
+fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                    row_heights=[0.55, 0.20, 0.25],
+                    vertical_spacing=0.02,
+                    subplot_titles=("Candlestick + MAs + Bollinger",
+                                     "Volume",
+                                     "KD 指標"))
 
-fig = make_subplots(
-    rows=2,
-    cols=1,
-    shared_xaxes=True,
-    vertical_spacing=0.03,
-    row_heights=[0.7, 0.3],
-)
-
-# --- Candlestick row -------------------------------------------------------------
+# ----- Row 1: Candlestick -----
 fig.add_trace(
     go.Candlestick(
-        x=data["Date"],
-        open=data["Open"],
-        high=data["High"],
-        low=data["Low"],
-        close=data["Close"],
-        name="OHLC",
-        increasing_line_color="#d62728",   # red for up
-        increasing_fillcolor="#d62728",
-        decreasing_line_color="#2ca02c",   # green for down
-        decreasing_fillcolor="#2ca02c",
-    ),
-    row=1,
-    col=1,
-)
+        x=df["Date"], open=df["Open"], high=df["High"],
+        low=df["Low"],  close=df["Close"],
+        increasing=dict(line=dict(color=inc_color), fillcolor=inc_color),
+        decreasing=dict(line=dict(color=dec_color), fillcolor=dec_color),
+        name="OHLC"),
+    row=1, col=1)
 
 # Moving averages
-for n, color in zip((5, 14, 20), ("#9467bd", "#8c564b", "#1f77b4")):
-    fig.add_trace(
-        go.Scatter(
-            x=data["Date"],
-            y=data[f"MA_{n}"],
-            mode="lines",
-            name=f"MA{n}",
-            line=dict(width=1),
-        ),
-        row=1,
-        col=1,
-    )
+for n in (5, 14, 20):
+    fig.add_trace(go.Scatter(x=df["Date"], y=df[f"MA_{n}"], name=f"MA{n}"), row=1, col=1)
 
-# Bollinger bands (upper / mid / lower)
-fig.add_trace(go.Scatter(x=data["Date"], y=data["BB_Upper"], name="Boll Upper", line=dict(width=1, dash="dash")), row=1, col=1)
-fig.add_trace(go.Scatter(x=data["Date"], y=data["BB_Mid"],   name="Boll Mid",   line=dict(width=1, dash="dot")),  row=1, col=1)
-fig.add_trace(go.Scatter(x=data["Date"], y=data["BB_Lower"], name="Boll Lower", line=dict(width=1, dash="dash")), row=1, col=1)
+# Bollinger Bands
+fig.add_trace(go.Scatter(x=df["Date"], y=df["BB_Upper"], name="Boll Upper", line=dict(dash="dash")), row=1, col=1)
+fig.add_trace(go.Scatter(x=df["Date"], y=df["BB_Mid"],   name="Boll Mid",   line=dict(dash="dot")),  row=1, col=1)
+fig.add_trace(go.Scatter(x=df["Date"], y=df["BB_Lower"], name="Boll Lower", line=dict(dash="dash")), row=1, col=1)
 
-# --- KD subplot ------------------------------------------------------------------
-fig.add_trace(go.Scatter(x=data["Date"], y=data["K"], name="%K"), row=2, col=1)
-fig.add_trace(go.Scatter(x=data["Date"], y=data["D"], name="%D"), row=2, col=1)
+# ----- Row 2: Volume bars -----
+colors = [inc_color if c >= o else dec_color for c, o in zip(df["Close"], df["Open"])]
+fig.add_trace(
+    go.Bar(x=df["Date"], y=df["Volume"], marker_color=colors, name="Volume"),
+    row=2, col=1)
 
-# Overbought / oversold lines
-fig.add_hline(y=80, line_dash="dash", row=2, col=1)
-fig.add_hline(y=20, line_dash="dash", row=2, col=1)
+# ----- Row 3: KD -----
+fig.add_trace(go.Scatter(x=df["Date"], y=df["K"], name="%K"), row=3, col=1)
+fig.add_trace(go.Scatter(x=df["Date"], y=df["D"], name="%D"), row=3, col=1)
+fig.add_hline(y=80, line_dash="dash", row=3, col=1)
+fig.add_hline(y=20, line_dash="dash", row=3, col=1)
 
-# Layout tweaks -------------------------------------------------------------------
+# --------- 版面設定 ---------
 fig.update_layout(
-    title=f"{TICKER} — Candlestick & KD ({data['Date'].min().date()} – {data['Date'].max().date()})",
+    title="0050 ETF – Candlestick, Volume & KD",
+    xaxis3_title="Date",   # KD 區 x 軸編號由 plotly 自動給 xaxis3
+    yaxis_title="Price (TWD)",
+    yaxis2_title="Volume", # 第二行 y 軸
+    yaxis3_title="Value",  # 第三行 y 軸
     xaxis_rangeslider_visible=False,
-    hovermode="x unified",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    margin=dict(t=50, b=30, l=65, r=30),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
 )
 
-# ------------------------------------------------------------------
-# Output --------------------------------------------------------------------------
-# ------------------------------------------------------------------
-
-fig.write_html(OUTPUT_FILE, include_plotlyjs="cdn")
-print(f"✔ Saved {OUTPUT_FILE} with candlestick & KD charts.")
+# --------- 輸出 ---------
+fig.write_html("0050_charts.html", include_plotlyjs="cdn")
+print("Saved 0050_charts.html")
