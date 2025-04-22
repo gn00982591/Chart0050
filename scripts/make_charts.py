@@ -1,9 +1,14 @@
 """
-make_charts.py — Auto‑detect Elliott Waves & generate interactive chart for Yuanta 0050 ETF
-========================================================================================
-更新重點（2025‑04‑18）：
-• **排除未含收盤價或成交量的資料列** → 確保圖表無缺口。
-• 仍維持：Row 1 K 線+MA+布林+波浪+預測、Row 2 成交量、Row 3 KD。
+make_charts.py — Generate 0050 ETF interactive chart (last 90 days, clean rows w/ missing Close or Volume)
+====================================================================================
+• Row 1  Candlestick + 5/14/20 MA + 20‑day Bollinger + Elliott 5‑wave + A‑B‑C + 預測路線
+• Row 2  成交量柱狀圖
+• Row 3  KD(9)
+
+規則：
+1. **僅取最近 90 天**（含今日；抓 100 天原始資料再截 90）
+2. **排除** `Close` 或 `Volume` 缺值，及 `Volume == 0` 的列 → 三層子圖同步
+3. 輸出單檔 `0050_charts.html`，標題附台灣生成時間。
 """
 
 from datetime import datetime
@@ -21,7 +26,7 @@ HTML_FILE   = "0050_charts.html"
 
 # ----------- 取得最近 70 天資料 -------------
 now_tw   = datetime.now(ZoneInfo("Asia/Taipei"))
-df_raw   = yf.Ticker(TICKER).history(period="70d").reset_index()
+df_raw   = yf.Ticker(TICKER).history(period="100d").reset_index()
 
 # *** 排除沒有收盤價或成交量的列 ***
 df = df_raw.dropna(subset=["Close", "Volume"]).copy()
