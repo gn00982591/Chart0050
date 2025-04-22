@@ -21,7 +21,7 @@ HTML_FILE   = "0050_charts.html"
 
 # ----------- 取得最近 70 天資料 -------------
 now_tw   = datetime.now(ZoneInfo("Asia/Taipei"))
-df_raw   = yf.Ticker(TICKER).history(period="90d").reset_index()
+df_raw   = yf.Ticker(TICKER).history(period="70d").reset_index()
 
 # *** 排除沒有收盤價或成交量的列 ***
 df = df_raw.dropna(subset=["Close", "Volume"]).copy()
