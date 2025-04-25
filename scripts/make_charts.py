@@ -24,7 +24,7 @@ THRESHOLD   = 0.02     # 2% threshold for pivots
 TICKER      = "0050.TW"
 HTML_FILE   = "0050_charts.html"
 
-# ----------- 取得最近 70 天資料 -------------
+# ----------- 取得最近 100 天資料 -------------
 now_tw   = datetime.now(ZoneInfo("Asia/Taipei"))
 df_raw   = yf.Ticker(TICKER).history(period="100d").reset_index()
 
