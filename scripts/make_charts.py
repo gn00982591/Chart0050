@@ -12,20 +12,7 @@ df = df_raw.tail(90)
 df = df.dropna(subset=["Close", "Volume"])
 df = df[df["Volume"] > 0]
 
-# === 2.1. 依日期調整前期資料：
-#     2025-06-15 之前，成交量×4、價格欄位 ÷4
-cutoff = pd.Timestamp("2025-06-15")
-mask = df["Date"] < cutoff
 
-# 成交量放大
-df.loc[mask, "Volume"] = df.loc[mask, "Volume"] * 4
-
-# 價格縮小
-price_cols = ["Open", "High", "Low", "Close"]
-df.loc[mask, price_cols] = df.loc[mask, price_cols] / 4
-
-
-df["DateStr"] = df["Date"].dt.strftime("%Y-%m-%d")  # 顯示用
 
 # === 3. 技術指標 ===
 for n in (5, 14, 20):
