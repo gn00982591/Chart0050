@@ -2,10 +2,13 @@ name: Daily update 0050 charts
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # 15:00 Asia/Taipei
-    - cron: '0 10 * * *'  # 18:00 Asia/Taipei
+    # 15:00 Asia/Taipei (07:00 UTC)
+    - cron: '0 7 * * *'
+    # 18:00 Asia/Taipei (10:00 UTC)
+    - cron: '0 10 * * *'
   workflow_dispatch:
 
+# 讓內建 GITHUB_TOKEN 具有 push 權限
 permissions:
   contents: write
 
@@ -14,40 +17,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 先把 main（或你專案的預設分支）checkout 下來
-      - name: Checkout code
+      # 1️⃣ 先抓取 gh‑pages 分支（需保證分支已存在）
+      - name: Checkout gh-pages branch
         uses: actions/checkout@v4
-        # 不指定 ref 就會抓 workflow 所在的預設分支（通常是 main）
+        with:
+          ref: gh-pages
 
-      # 2. 設定 Python 3.11 並快取 pip 套件
+      # 2️⃣ 安裝 Python 3.11
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      # 3. 安裝相依
+      # 3️⃣ 安裝所需套件
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install yfinance pandas plotly
-          
-      - name: Debug workspace
-        run: |
-          pwd
-          echo "== 檔案結構 =="
-          ls -R .
-            
-      # 4. 產生圖表
+
+      # 4️⃣ 產生圖表（scripts/make_charts.py）
       - name: Generate charts
         run: |
-            set -eux               # 打開 shell trace + 失敗立即終止
-            python scripts/make_charts.py        
+          python scripts/make_charts.py
 
-      # 5. 用 peaceiris/actions-gh-pages 一次完成 gh-pages 部署
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./
+      # 5️⃣ Commit & push 回 gh‑pages
+      - name: Commit & push charts
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add 0050_*.html
+          git diff --cached --quiet && echo "No changes" || git commit -m "chore: update charts $(date -u +'%Y-%m-%d')"
+
+          # 直接使用 GITHUB_TOKEN（已具備 contents:write）
+          git push origin gh-pages
