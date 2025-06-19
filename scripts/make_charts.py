@@ -58,42 +58,7 @@ fig = make_subplots(
     )
 )
 
-# 7-1. 第一層：K 線 + MA + 布林通道
-fig.add_trace(
-    go.Candlestick(
-        x=df["DateStr"], open=df["Open"], high=df["High"],
-        low=df["Low"], close=df["Close"],
-        name="OHLC", increasing_line_color="red", decreasing_line_color="green"
-    ),
-    row=1, col=1
-)
-for n in (5, 14, 20):
-    fig.add_trace(
-        go.Scatter(
-            x=df["DateStr"], y=df[f"MA_{n}"],
-            mode="lines", name=f"MA {n}"
-        ),
-        row=1, col=1
-    )
-fig.add_trace(
-    go.Scatter(x=df["DateStr"], y=df["BB_Upper"], name="Boll Upper", line=dict(dash="dot")),
-    row=1, col=1
-)
-fig.add_trace(
-    go.Scatter(x=df["DateStr"], y=df["BB_Mid"],   name="Boll Mid",   line=dict(dash="dash")),
-    row=1, col=1
-)
-fig.add_trace(
-    go.Scatter(x=df["DateStr"], y=df["BB_Lower"], name="Boll Lower", line=dict(dash="dot")),
-    row=1, col=1
-)
 
-# 7-2. 第二層：成交量
-colors = ["red" if c >= o else "green" for c, o in zip(df["Close"], df["Open"])]
-fig.add_trace(
-    go.Bar(x=df["DateStr"], y=df["Volume"], name="Volume", marker_color=colors, showlegend=False),
-    row=2, col=1
-)
 
 # 7-3. 第三層：KD 指標
 fig.add_trace(
