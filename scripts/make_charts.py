@@ -36,22 +36,6 @@ fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
                     vertical_spacing=0.02,
                     subplot_titles=(f"0050 ETF 技術走勢圖（生成：{twn_now}）", "", "KD 指標"))
 
-# === 5-1 K 線圖層 ===
-fig.add_trace(go.Candlestick(
-    x=df["DateStr"],
-    open=df["Open"], high=df["High"], low=df["Low"], close=df["Close"],
-    name="OHLC",
-    increasing_line_color="red", decreasing_line_color="green"), row=1, col=1)
-
-for n in (5, 14, 20):
-    fig.add_trace(go.Scatter(x=df["DateStr"], y=df[f"MA_{n}"], name=f"MA {n}", mode="lines"), row=1, col=1)
-fig.add_trace(go.Scatter(x=df["DateStr"], y=df["BB_Upper"], name="Boll Upper", line=dict(dash="dot")), row=1, col=1)
-fig.add_trace(go.Scatter(x=df["DateStr"], y=df["BB_Mid"],   name="Boll Mid",   line=dict(dash="dash")), row=1, col=1)
-fig.add_trace(go.Scatter(x=df["DateStr"], y=df["BB_Lower"], name="Boll Lower", line=dict(dash="dot")), row=1, col=1)
-
-# === 5-2 成交量層 ===
-colors = ["red" if c >= o else "green" for c, o in zip(df["Close"], df["Open"])]
-fig.add_trace(go.Bar(x=df["DateStr"], y=df["Volume"], name="Volume", marker_color=colors, showlegend=False), row=2, col=1)
 
 # === 5-3 KD 指標層 ===
 fig.add_trace(go.Scatter(x=df["DateStr"], y=df["K"], name="%K", line=dict(color="magenta")), row=3, col=1)
