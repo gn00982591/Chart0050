@@ -31,10 +31,18 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install yfinance pandas plotly
-
+          
+      - name: Debug workspace
+        run: |
+          pwd
+          echo "== 檔案結構 =="
+          ls -R .
+            
       # 4. 產生圖表
       - name: Generate charts
-        run: python scripts/make_charts.py
+        run: |
+            set -eux               # 打開 shell trace + 失敗立即終止
+            python scripts/make_charts.py        
 
       # 5. 用 peaceiris/actions-gh-pages 一次完成 gh-pages 部署
       - name: Deploy to GitHub Pages
