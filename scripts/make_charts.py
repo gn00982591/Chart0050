@@ -14,10 +14,7 @@ df = df[df["Volume"] > 0]
 
 # === 2.5 資料校正：2025-06-15 以前，成交量×4，價格÷4 ===
 cutoff = pd.Timestamp("2025-06-08", tz="Asia/Taipei")
-mask   = df["Date"] < cutoff
-df.loc[mask, "Volume"] = df.loc[mask, "Volume"] * 4
-price_cols = ["Open", "High", "Low", "Close"]
-df.loc[mask, price_cols] = df.loc[mask, price_cols] / 4
+
 
 # === 2.6 顯示用日期字串 ===
 df["DateStr"] = df["Date"].dt.strftime("%Y-%m-%d")  # 顯示用
